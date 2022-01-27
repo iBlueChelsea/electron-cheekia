@@ -1,0 +1,25 @@
+.endturn-button {
+    fill: #2F4F4F;
+    stroke: #00FA9A;
+    stroke-width: 10px;
+    cursor: pointer;
+}
+
+.endturn-text {
+    stroke: #00FA9A;
+    stroke-width: 3px;
+    text-anchor: middle;
+    cursor: pointer;
+}
+
+.enemyturn-button {
+    fill: #262626;
+    stroke: #962d3e;
+    stroke-width: 10px;
+}
+
+.enemyturn-text {
+    stroke: #962d3e;
+    stroke-width: 3px;
+    text-anchor: middle;
+}

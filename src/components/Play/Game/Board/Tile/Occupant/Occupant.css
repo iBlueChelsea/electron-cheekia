@@ -1,0 +1,79 @@
+.friendly {
+    cursor: not-allowed;
+}
+
+.friendly-selectable {
+    cursor: pointer;
+}
+
+.enemy {
+    cursor: not-allowed;
+}
+
+.enemy-selectable {
+    cursor: crosshair;
+}
+
+.creature {
+    stroke:rgb(211, 211, 211);
+    stroke-width: 3px;
+}
+
+.creature:hover {
+    stroke: rgb(165, 252, 125);
+    stroke-width: 5px;
+}
+
+.creature-selected {
+    stroke: rgb(255, 254, 197);
+    stroke-width: 5px;
+}
+
+.creature-enemy {
+    stroke:rgb(20, 20, 20);
+    stroke-width: 3px;
+}
+
+.creature-enemy:hover {
+    stroke:rgb(212, 10, 10);
+    stroke-width: 5px;
+}
+
+.attack {
+    fill:rgb(255, 255, 0);
+    stroke:black;
+}
+
+.attack-text {
+    font-size: large;
+    font-weight: bold;
+    text-anchor: middle;
+}
+
+.health {
+    fill:rgb(255, 0, 0);
+    stroke:black;
+}
+
+.health-text {
+    font-size: large;
+    font-weight: bold;
+    text-anchor: middle;
+}
+
+.enemy-icon {
+    stroke:rgb(20, 20, 20);
+    stroke-width: 1px;
+}
+
+.protection {
+    fill: rgba(255, 255, 255, 0.3);
+    stroke: rgba(255, 255, 255, 0.6);
+    stroke-width: 2px;
+}
+
+.divine {
+    fill: rgba(129, 167, 202, 0.3);
+    stroke: rgba(255, 255, 255, 0.6);
+    stroke-width: 2px;
+}
