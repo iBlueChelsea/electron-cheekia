@@ -4,7 +4,7 @@ import EndTurnButton from "../../UI/EndTurnButton/EndTurnButton";
 import "./Wheel.css";
 import { useStore } from "../../../../hooks/store";
 
-const Wheel = (props) => {
+const Wheel = React.memo((props) => {
   const state = useStore()[0];
 
   const hexSize = 40;
@@ -72,6 +72,6 @@ const Wheel = (props) => {
       {wheelOutput}
     </svg>
   );
-};
+});
 
 export default Wheel;

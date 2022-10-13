@@ -1,6 +1,6 @@
 import React from "react";
 
-const Faeria = (props) => {
+const Faeria = React.memo((props) => {
   return (
     <svg>
       <g>
@@ -26,6 +26,6 @@ const Faeria = (props) => {
       </g>
     </svg>
   );
-};
+});
 
 export default Faeria;

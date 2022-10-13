@@ -1,6 +1,5 @@
 import { initStore } from "./store";
 import EventProcessor from "./event-processor";
-import axios from "axios";
 
 const configureStore = (loadStore) => {
   const actions = {
@@ -9,10 +8,64 @@ const configureStore = (loadStore) => {
       updatedState = data;
       return updatedState;
     },
+    SET_STATE_DATA: (currentState, data) => {
+      let updatedState = JSON.parse(JSON.stringify(currentState));
+      updatedState.data.board = data.board;
+      updatedState.data.status = data.status;
+      return updatedState;
+    },
+    SET_STATE_PLAYER: (currentState, data) => {
+      let updatedState = JSON.parse(JSON.stringify(currentState));
+      updatedState.data[data.player] = data.statePlayer;
+      return updatedState;
+    },
+    SET_STATE_PLAYER_AND_DATA: (currentState, data) => {
+      let updatedState = JSON.parse(JSON.stringify(currentState));
+      updatedState.data[data.player] = data.statePlayer;
+      updatedState.data.board = data.stateData.board;
+      updatedState.data.status = data.stateData.status;
+
+      if (data.action == "END_TURN") {
+        //Wheel
+        Object.keys(updatedState.wheelbuttons).forEach((wheel) => {
+          updatedState.wheelbuttons[wheel].selectable = true;
+          updatedState.wheelbuttons[wheel].selected = false;
+        });
+
+        //Hand
+        Object.keys(updatedState.hand).forEach((card) => {
+          updatedState.hand[card].selectable = true;
+          updatedState.hand[card].selected = false;
+        });
+
+        //Tiles and Occupants
+        Object.keys(updatedState.tiles).forEach((tile) => {
+          updatedState.tiles[tile].selectable = false;
+          updatedState.tiles[tile].selected = false;
+          updatedState.tiles[tile].occupantSelectable = true;
+          updatedState.tiles[tile].occupantSelected = false;
+        });
+
+        //Gods
+        Object.keys(updatedState.gods).forEach((god) => {
+          updatedState.gods[god].selectable = false;
+        });
+
+        updatedState.currentAction = "";
+      }
+
+      return updatedState;
+    },
     SHUFFLE_DECK: (currentState, data) => {
       const updatedState = JSON.parse(JSON.stringify(currentState));
+      let cards = { 0: updatedState.cardLibrary[0] };
+      data.cards.forEach((cardId, index) => {
+        cards[index + 1] = updatedState.cardLibrary[cardId];
+      });
+      updatedState.data[data.player].cards = cards;
       const shuffledDeck = [];
-      for (let i = 0; i < currentState.data[data.player].deck.length; i++) {
+      const deckLength = updatedState.data[data.player].deck.length;
+      for (let i = 0; i < deckLength; i++) {
         let random = Math.floor(
           Math.random() * updatedState.data[data.player].deck.length
         );
@@ -20,38 +73,59 @@ const configureStore = (loadStore) => {
         updatedState.data[data.player].deck.splice(random, 1);
       }
       updatedState.data[data.player].deck = shuffledDeck;
-      updatedState.data[data.player].shuffle = true;
-      const newState = JSON.parse(JSON.stringify(updatedState));
-      const getdata = new FormData();
-      getdata.append("id", document.getElementById("game_id").value);
-      axios
-        .post("/faeria/Faeria/utils/getState.php", getdata)
-        .then((res) => {
-          const prevState = JSON.parse(res.data);
-          newState.data[data.opponent] = prevState.data[data.opponent];
-          const postdata = new FormData();
-          postdata.append("react_state", JSON.stringify(newState));
-          postdata.append("id", data.id);
-          axios
-            .post("/faeria/Faeria/utils/saveState.php", postdata)
-            .catch((error) => {
-              console.log("Network Error", error.message);
-            });
-        })
-        .catch((error) => {
-          console.log("Network Error", error.message);
-        });
+      updatedState.data[data.player].shuffled = true;
+      updatedState.dispatchAction = "SHUFFLE_DECK";
       return updatedState;
     },
     CONFIRM_MULLIGAN: (currentState, data) => {
       let updatedState = JSON.parse(JSON.stringify(currentState));
-      updatedState = data;
+      const prevHand = updatedState.data[data.player].deck.slice(0, 3);
+      const cardsToReplace = [];
+      const newHand = [];
+      for (let i = 0; i < prevHand.length; i++) {
+        if (data.initialHand[i]) {
+          cardsToReplace.push(
+            updatedState.data[data.player].cards[prevHand[i]].id
+          );
+        } else {
+          newHand.push(parseInt(prevHand[i]));
+        }
+      }
+      const replacePool = Object.entries(
+        updatedState.data[data.player].cards
+      ).filter(
+        (card) =>
+          !cardsToReplace.includes(card[1].id) &&
+          !newHand.includes(parseInt(card[0])) &&
+          parseInt(card[0]) !== 0
+      );
+      for (let i = 0; i < cardsToReplace.length; i++) {
+        let random = Math.floor(Math.random() * replacePool.length);
+        newHand.push(parseInt(replacePool[random][0]));
+        replacePool.splice(random, 1);
+      }
+      const shuffledDeck = [];
+      const prevDeck = updatedState.data[data.player].deck.filter(
+        (card) => !newHand.includes(card)
+      );
+      const deckLength = prevDeck.length;
+      for (let i = 0; i < deckLength; i++) {
+        let random = Math.floor(Math.random() * prevDeck.length);
+        shuffledDeck.push(prevDeck[random]);
+        prevDeck.splice(random, 1);
+      }
+      if (data.player === "player2") {
+        newHand.push(0);
+      }
+      updatedState.data[data.player].deck = shuffledDeck;
+      updatedState.data[data.player].hand = newHand;
+      updatedState.data[data.player].mulligan = false;
+      updatedState.dispatchAction = "CONFIRM_MULLIGAN";
       return updatedState;
     },
     START_GAME: (currentState, data) => {
       const updatedState = JSON.parse(JSON.stringify(currentState));
 
-      updatedState.data.status.turn = 1;
       updatedState.data[data.player].wheel_used = false;
 
       //Wheel
@@ -79,14 +153,9 @@ const configureStore = (loadStore) => {
         updatedState.gods[god].selectable = false;
       });
 
-      const formdata = new FormData();
-      formdata.append("react_state", JSON.stringify(updatedState));
-      formdata.append("id", document.getElementById("game_id").value);
-      axios
-        .post("/faeria/Faeria/utils/saveState.php", formdata)
-        .catch((error) => {
-          console.log("Network Error", error.message);
-        });
+      updatedState.data.status.turn = 1;
+      updatedState.dispatchAction = "START_GAME";
+
       return updatedState;
     },
     SELECT_LAND: (currentState, data) => {
@@ -183,28 +252,14 @@ const configureStore = (loadStore) => {
         }
       }
       updatedState.data[data.player].wheel_used = true;
-      const formdata = new FormData();
-      formdata.append("react_state", JSON.stringify(updatedState));
-      formdata.append("id", document.getElementById("game_id").value);
-      axios
-        .post("/faeria/Faeria/utils/saveState.php", formdata)
-        .catch((error) => {
-          console.log("Network Error", error.message);
-        });
+      updatedState.dispatchAction = "DRAW_CARD";
       return updatedState;
     },
     PLUS_FAERIA: (currentState, player) => {
       const updatedState = JSON.parse(JSON.stringify(currentState));
       updatedState.data[player].faeria++;
       updatedState.data[player].wheel_used = true;
-      const formdata = new FormData();
-      formdata.append("react_state", JSON.stringify(updatedState));
-      formdata.append("id", document.getElementById("game_id").value);
-      axios
-        .post("/faeria/Faeria/utils/saveState.php", formdata)
-        .catch((error) => {
-          console.log("Network Error", error.message);
-        });
+      updatedState.dispatchAction = "PLUS_FAERIA";
       return updatedState;
     },
     BUILD_TILE: (currentState, data) => {
@@ -250,14 +305,7 @@ const configureStore = (loadStore) => {
         updatedState.data[data.player].wheel_used = true;
         updatedState.data[data.player].wheel_neutral_counter = 0;
       }
-      const formdata = new FormData();
-      formdata.append("react_state", JSON.stringify(updatedState));
-      formdata.append("id", document.getElementById("game_id").value);
-      axios
-        .post("/faeria/Faeria/utils/saveState.php", formdata)
-        .catch((error) => {
-          console.log("Network Error", error.message);
-        });
+      updatedState.dispatchAction = "BUILD_TILE";
       return updatedState;
     },
     SELECT_CARD: (currentState, data) => {
@@ -463,14 +511,7 @@ const configureStore = (loadStore) => {
           updatedState.hand[data.hand_id].selected =
             !updatedState.hand[data.hand_id].selected;
           updatedState = EP.handleEventLogic();
-          const formdata = new FormData();
-          formdata.append("react_state", JSON.stringify(updatedState));
-          formdata.append("id", document.getElementById("game_id").value);
-          axios
-            .post("/faeria/Faeria/utils/saveState.php", formdata)
-            .catch((error) => {
-              console.log("Network Error", error.message);
-            });
+          updatedState.dispatchAction = "SELECT_EVENT";
         }
       }
       return updatedState;
@@ -479,28 +520,14 @@ const configureStore = (loadStore) => {
       let updatedState = JSON.parse(JSON.stringify(currentState));
       const EP = new EventProcessor(updatedState, data);
       updatedState = EP.handleEventLogic();
-      const formdata = new FormData();
-      formdata.append("react_state", JSON.stringify(updatedState));
-      formdata.append("id", document.getElementById("game_id").value);
-      axios
-        .post("/faeria/Faeria/utils/saveState.php", formdata)
-        .catch((error) => {
-          console.log("Network Error", error.message);
-        });
+      updatedState.dispatchAction = "PROCESS_EVENT_OCCUPANT";
       return updatedState;
     },
     PROCESS_EVENT_TILE: (currentState, data) => {
       let updatedState = JSON.parse(JSON.stringify(currentState));
       const EP = new EventProcessor(updatedState, data);
       updatedState = EP.handleEventLogic();
-      const formdata = new FormData();
-      formdata.append("react_state", JSON.stringify(updatedState));
-      formdata.append("id", document.getElementById("game_id").value);
-      axios
-        .post("/faeria/Faeria/utils/saveState.php", formdata)
-        .catch((error) => {
-          console.log("Network Error", error.message);
-        });
+      updatedState.dispatchAction = "PROCESS_EVENT_TILE";
       return updatedState;
     },
     PROCESS_GIFT_OCCUPANT: (currentState, data) => {
@@ -510,14 +537,7 @@ const configureStore = (loadStore) => {
       )[0];
       const EP = new EventProcessor(updatedState, data);
       updatedState = EP.processGiftEffect(selected_occupant_id);
-      const formdata = new FormData();
-      formdata.append("react_state", JSON.stringify(updatedState));
-      formdata.append("id", document.getElementById("game_id").value);
-      axios
-        .post("/faeria/Faeria/utils/saveState.php", formdata)
-        .catch((error) => {
-          console.log("Network Error", error.message);
-        });
+      updatedState.dispatchAction = "PROCESS_GIFT_OCCUPANT";
       return updatedState;
     },
     CHOOSE_CARD: (currentState, data) => {
@@ -525,39 +545,7 @@ const configureStore = (loadStore) => {
       const EP = new EventProcessor(updatedState, data);
       EP.processSpecialEffect(data.id, { tile: data.tile });
 
-      //Wheel
-      Object.keys(updatedState.wheelbuttons).forEach((wheel) => {
-        updatedState.wheelbuttons[wheel].selectable = true;
-        updatedState.wheelbuttons[wheel].selected = false;
-      });
-
-      //Hand
-      Object.keys(updatedState.hand).forEach((card) => {
-        updatedState.hand[card].selectable = true;
-        updatedState.hand[card].selected = false;
-      });
-
-      //Tiles and Occupants
-      Object.keys(updatedState.tiles).forEach((tile) => {
-        updatedState.tiles[tile].selectable = false;
-        updatedState.tiles[tile].selected = false;
-        updatedState.tiles[tile].occupantSelectable = true;
-        updatedState.tiles[tile].occupantSelected = false;
-      });
-
-      //Gods
-      Object.keys(updatedState.gods).forEach((god) => {
-        updatedState.gods[god].selectable = false;
-      });
-
-      const formdata = new FormData();
-      formdata.append("react_state", JSON.stringify(updatedState));
-      formdata.append("id", document.getElementById("game_id").value);
-      axios
-        .post("/faeria/Faeria/utils/saveState.php", formdata)
-        .catch((error) => {
-          console.log("Network Error", error.message);
-        });
+      updatedState.dispatchAction = "CHOOSE_CARD";
 
       return updatedState;
     },
@@ -626,30 +614,41 @@ const configureStore = (loadStore) => {
         newHand[selected_card_id].selectable = false;
         EP.initGiftEffect(updatedState.data.board.tiles[data.tile_id].occupant);
       } else if (
-        updatedState.currentAction !== "event_choose_occupant" &&
-        updatedState.data.board.tiles[data.tile_id].occupant.movement.dash === 0
+        updatedState.currentAction !== "event_choose_occupant"
       ) {
-        Object.keys(updatedState.tiles).forEach((key) => {
-          updatedState.tiles[key].selectable = false;
-          updatedState.tiles[key].occupantSelectable = true;
-        });
-        Object.keys(newHand).forEach((key) => {
-          newHand[key].selectable = true;
-        });
-        if (updatedState.data[data.player].wheel_neutral_counter !== 1) {
-          Object.keys(updatedState.wheelbuttons).forEach((key) => {
-            updatedState.wheelbuttons[key].selectable = true;
+        if (
+          updatedState.data.board.tiles[data.tile_id].occupant.movement.dash > 0
+        ) {
+          Object.keys(updatedState.tiles).forEach((key) => {
+            updatedState.tiles[key].selectable = false;
+            updatedState.tiles[key].occupantSelectable = false;
           });
+          Object.keys(newHand).forEach((key) => {
+            newHand[key].selectable = false;
+          });
+          Object.keys(updatedState.wheelbuttons).forEach((key) => {
+            updatedState.wheelbuttons[key].selectable = false;
+          });
+          updatedState.tiles[data.tile_id].occupantSelectable = true;
         } else {
-          updatedState.wheelbuttons["wheel-B2"].selectable = true;
+          Object.keys(updatedState.tiles).forEach((key) => {
+            updatedState.tiles[key].selectable = false;
+            updatedState.tiles[key].occupantSelectable = true;
+          });
+          Object.keys(newHand).forEach((key) => {
+            newHand[key].selectable = true;
+          });
+          if (updatedState.data[data.player].wheel_neutral_counter !== 1) {
+            Object.keys(updatedState.wheelbuttons).forEach((key) => {
+              updatedState.wheelbuttons[key].selectable = true;
+            });
+          } else {
+            updatedState.wheelbuttons["wheel-B2"].selectable = true;
+          }
         }
         updatedState.currentAction = "";
       }
-      if (
-        updatedState.data.board.tiles[data.tile_id].occupant.movement.dash > 0
-      ) {
-        updatedState.tiles[data.tile_id].occupantSelectable = true;
-      }
+
       updatedState.hand = newHand;
       updatedState.data[data.player].faeria -=
         updatedState.data[data.player].cards[
@@ -666,14 +665,7 @@ const configureStore = (loadStore) => {
       });
       //Balloon Cheek
 
-      const formdata = new FormData();
-      formdata.append("react_state", JSON.stringify(updatedState));
-      formdata.append("id", document.getElementById("game_id").value);
-      axios
-        .post("/faeria/Faeria/utils/saveState.php", formdata)
-        .catch((error) => {
-          console.log("Network Error", error.message);
-        });
+      updatedState.dispatchAction = "SUMMON_CREATURE";
       return updatedState;
     },
     SELECT_OCCUPANT: (currentState, data) => {
@@ -1208,14 +1200,7 @@ const configureStore = (loadStore) => {
         updatedState.gods[god].selectable = false;
       });
       updatedState.currentAction = "";
-      const formdata = new FormData();
-      formdata.append("react_state", JSON.stringify(updatedState));
-      formdata.append("id", document.getElementById("game_id").value);
-      axios
-        .post("/faeria/Faeria/utils/saveState.php", formdata)
-        .catch((error) => {
-          console.log("Network Error", error.message);
-        });
+      updatedState.dispatchAction = "MOVE_OCCUPANT";
       return updatedState;
     },
     ATTACK_OCCUPANT: (currentState, data) => {
@@ -1341,14 +1326,7 @@ const configureStore = (loadStore) => {
       });
       updatedState.tiles[selected_occupant_id].occupantSelected = false;
       updatedState.currentAction = "";
-      const formdata = new FormData();
-      formdata.append("react_state", JSON.stringify(updatedState));
-      formdata.append("id", document.getElementById("game_id").value);
-      axios
-        .post("/faeria/Faeria/utils/saveState.php", formdata)
-        .catch((error) => {
-          console.log("Network Error", error.message);
-        });
+      updatedState.dispatchAction = "ATTACK_OCCUPANT";
       return updatedState;
     },
     ATTACK_GOD: (currentState, data) => {
@@ -1396,14 +1374,7 @@ const configureStore = (loadStore) => {
         updatedState.data.status.finished = true;
         updatedState.data.status.winner = data.player;
       }
-      const formdata = new FormData();
-      formdata.append("react_state", JSON.stringify(updatedState));
-      formdata.append("id", document.getElementById("game_id").value);
-      axios
-        .post("/faeria/Faeria/utils/saveState.php", formdata)
-        .catch((error) => {
-          console.log("Network Error", error.message);
-        });
+      updatedState.dispatchAction = "ATTACK_GOD";
       return updatedState;
     },
     END_TURN: (currentState, data) => {
@@ -1582,41 +1553,7 @@ const configureStore = (loadStore) => {
       updatedState.data.status.turn += 1;
       updatedState.data.status.current = data.opponent;
 
-      //Wheel
-      Object.keys(updatedState.wheelbuttons).forEach((wheel) => {
-        updatedState.wheelbuttons[wheel].selectable = true;
-        updatedState.wheelbuttons[wheel].selected = false;
-      });
-
-      //Hand
-      Object.keys(updatedState.hand).forEach((card) => {
-        updatedState.hand[card].selectable = true;
-        updatedState.hand[card].selected = false;
-      });
-
-      //Tiles and Occupants
-      Object.keys(updatedState.tiles).forEach((tile) => {
-        updatedState.tiles[tile].selectable = false;
-        updatedState.tiles[tile].selected = false;
-        updatedState.tiles[tile].occupantSelectable = true;
-        updatedState.tiles[tile].occupantSelected = false;
-      });
-
-      //Gods
-      Object.keys(updatedState.gods).forEach((god) => {
-        updatedState.gods[god].selectable = false;
-      });
-
-      updatedState.currentAction = "";
-
-      const formdata = new FormData();
-      formdata.append("react_state", JSON.stringify(updatedState));
-      formdata.append("id", document.getElementById("game_id").value);
-      axios
-        .post("/faeria/Faeria/utils/saveState.php", formdata)
-        .catch((error) => {
-          console.log("Network Error", error.message);
-        });
+      updatedState.dispatchAction = "END_TURN";
 
       return updatedState;
     },
@@ -1630,14 +1567,7 @@ const configureStore = (loadStore) => {
       updatedState.data.status.winner = data.opponent;
       updatedState.data.status.finished = true;
 
-      const formdata = new FormData();
-      formdata.append("react_state", JSON.stringify(updatedState));
-      formdata.append("id", document.getElementById("game_id").value);
-      axios
-        .post("/faeria/Faeria/utils/saveState.php", formdata)
-        .catch((error) => {
-          console.log("Network Error", error.message);
-        });
+      updatedState.dispatchAction = "END_GAME";
 
       return updatedState;
     },

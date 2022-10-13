@@ -2,8 +2,8 @@ import React from "react";
 import "./EndTurnButton.css";
 import { useStore } from "../../../../hooks/store";
 
-const EndTurnButton = (props) => {
-  const dispatch = useStore()[1];
+const EndTurnButton = React.memo((props) => {
+  const dispatch = useStore(false)[1];
 
   const endTurnHandler = () => {
     const payload = {
@@ -49,6 +49,6 @@ const EndTurnButton = (props) => {
       </text>
     </g>
   );
-};
+});
 
 export default EndTurnButton;

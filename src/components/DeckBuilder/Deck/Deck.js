@@ -40,7 +40,7 @@ const Deck = (props) => {
       .then((res) => {
         res.data.forEach((card) => {
           const array = cardlist.find((arr) => arr.includes(parseInt(card.id)));
-          if (card.legendary === "1") {
+          if (card.legendary == 1) {
             !array || array.length < 1
               ? (card.playable = true)
               : (card.playable = false);
@@ -64,7 +64,7 @@ const Deck = (props) => {
     const newCardsState = [...cardsState];
     newCardsState.forEach((card) => {
       const array = cardlist.find((arr) => arr.includes(parseInt(card.id)));
-      if (card.legendary === "1") {
+      if (card.legendary == 1) {
         !array || array.length < 1
           ? (card.playable = true)
           : (card.playable = false);

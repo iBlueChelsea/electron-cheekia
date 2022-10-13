@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import Board from "./Board/Board";
 import Hand from "./Hand/Hand";
 import Wheel from "./Wheel/Wheel";
@@ -8,82 +8,172 @@ import ChooseModal from "../UI/ChooseModal/ChooseModal";
 import Card from "./Hand/Card/Card";
 import EndGameButton from "../UI/EndGameButton/EndGameButton";
 import { useStore } from "../../../hooks/store";
-import axios from "axios";
-import { useParams } from "react-router-dom";
+import User from "../../../hooks/auth";
+import images_ui from "../../../assets/images/ui/images_ui";
 
-const Game = () => {
+const Game = React.memo((props) => {
   const [state, dispatch] = useStore();
-  const user = 1 //NEEDUSER
-  const opponent = 2; //NEEDUSER
+  const user = useContext(User);
 
-  const params = useParams();
-  console.log("Params: ", params);
-  const id = params.id;
+  //console.log("STATE_UPDATE", state);
 
   useEffect(() => {
-    const payload = { player: user, opponent: opponent, id: id };
-    if (!state.data[user].shuffle) {
+    user.socket.on("updateGameState", (data) => {
+      dispatch("SET_DATA", JSON.parse(data));
+    });
+
+    user.socket.on("getDeck", (cards) => {
+      const payload = { player: props.player, cards: JSON.parse(cards) };
       dispatch("SHUFFLE_DECK", payload);
+    });
+
+    user.socket.on("updateStateData", (action, stateData) => {
+      //console.log("onUpdateStateData", action);
+      dispatch("SET_STATE_DATA", JSON.parse(stateData));
+    });
+
+    user.socket.on("updateStatePlayer", (action, player, statePlayer) => {
+      //console.log("onUpdateStatePlayer", action);
+      const payload = { player: player, statePlayer: JSON.parse(statePlayer) };
+      dispatch("SET_STATE_PLAYER", payload);
+    });
+
+    user.socket.on(
+      "updateStatePlayerAndData",
+      (action, player, statePlayer, stateData) => {
+        //console.log("onUpdateStatePlayerAndData", action);
+        const payload = {
+          player: player,
+          statePlayer: JSON.parse(statePlayer),
+          stateData: JSON.parse(stateData),
+          action: action,
+        };
+        dispatch("SET_STATE_PLAYER_AND_DATA", payload);
+      }
+    );
+
+    return () => {
+      user.socket.off("updateGameState");
+      user.socket.off("getDeck");
+      user.socket.off("updateStateData");
+      user.socket.off("updateStatePlayer");
+      user.socket.off("updateStatePlayerAndData");
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!state.data[props.player].shuffled) {
+      user.socket.emit("getDeck", props.gameId, props.player);
     }
+  }, []);
+
+  useEffect(() => {
     if (
-      !state.data[user].mulligan &&
-      !state.data[opponent].mulligan &&
-      state.data.status.turn === 0 &&
-      user === "player1"
+      !state.data[props.player].mulligan &&
+      !state.data[props.opponent].mulligan &&
+      props.player === "player1"
     ) {
+      const payload = { player: props.player };
       dispatch("START_GAME", payload);
     }
-    if (
-      (state.data.status.current === opponent && !state.data[user].mulligan) ||
-      (!state.data[user].mulligan && state.data[opponent].mulligan)
-    ) {
-      const timer = setTimeout(() => {
-        const formdata = new FormData();
-        formdata.append("id", id);
-        let timestamp = Date.now();
-        axios
-          .post(
-            "/faeria/Faeria/utils/getState.php?timestamp=" + timestamp,
-            formdata
-          )
-          .then((res) => {
-            dispatch("SET_DATA", JSON.parse(res.data));
-          })
-          .catch((error) => {
-            console.log("Network Error", error.message);
-          });
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  });
+  }, [state.data.player1.mulligan, state.data.player2.mulligan]);
 
-  const mulligan = state.data[user].mulligan ? (
-    <MulliganModal user={user} opponent={opponent} id={id} />
+  useEffect(() => {
+    //console.log("onDispatch", state.dispatchAction);
+    switch (state.dispatchAction) {
+      case "START_GAME":
+      case "END_GAME":
+        user.socket.emit(
+          "saveStateData",
+          state.dispatchAction,
+          props.gameId,
+          JSON.stringify({ status: state.data.status, board: state.data.board })
+        );
+        break;
+      case "SHUFFLE_DECK":
+      case "CONFIRM_MULLIGAN":
+      case "PLUS_FAERIA":
+        user.socket.emit(
+          "saveStatePlayer",
+          state.dispatchAction,
+          props.gameId,
+          props.player,
+          JSON.stringify(state.data[props.player])
+        );
+        break;
+      case "BUILD_TILE":
+      case "DRAW_CARD":
+      case "SELECT_EVENT":
+      case "PROCESS_EVENT_OCCUPANT":
+      case "PROCESS_EVENT_TILE":
+      case "PROCESS_GIFT_OCCUPANT":
+      case "CHOOSE_CARD":
+      case "SUMMON_CREATURE":
+      case "MOVE_OCCUPANT":
+      case "ATTACK_OCCUPANT":
+      case "ATTACK_GOD":
+        user.socket.emit(
+          "saveStatePlayerAndData",
+          state.dispatchAction,
+          props.gameId,
+          props.player,
+          JSON.stringify(state.data[props.player]),
+          JSON.stringify({ status: state.data.status, board: state.data.board })
+        );
+        break;
+      case "END_TURN":
+        user.socket.emit(
+          "saveStatePlayerAndData",
+          state.dispatchAction,
+          props.gameId,
+          props.opponent,
+          JSON.stringify(state.data[props.opponent]),
+          JSON.stringify({ status: state.data.status, board: state.data.board })
+        );
+        break;
+      default:
+    }
+  }, [state.dispatchAction]);
+
+  if (!(state.data.player1.shuffled && state.data.player2.shuffled)) {
+    return "Waiting for game to load...";
+  }
+
+  const mulligan = state.data[props.player].mulligan ? (
+    <MulliganModal
+      player={props.player}
+      opponent={props.opponent}
+      id={props.gameId}
+    />
   ) : null;
 
   const choose =
-    state.data.status.current === user &&
+    state.data.status.current === props.player &&
     state.currentAction === "event_choose_occupant" ? (
-      <ChooseModal user={user} opponent={opponent} id={id} />
+      <ChooseModal
+        user={props.player}
+        opponent={props.opponent}
+        id={props.gameId}
+      />
     ) : null;
 
   const highlighted_card = state.highlightedOccupant ? (
     <Card
-      id={id}
+      id={props.gameId}
       index={0}
       data={state.cardLibrary[state.highlightedOccupant]}
       classname="card-highlight"
       width="240px"
       height="326px"
-      user={user}
-      opponent={opponent}
-      owner={user}
+      user={props.player}
+      opponent={props.opponent}
+      owner={props.player}
     />
   ) : null;
 
   const endgamebutton =
-    state.data.status.current === user ? (
-      <EndGameButton opponent={opponent} />
+    state.data.status.current === props.player ? (
+      <EndGameButton opponent={props.opponent} />
     ) : null;
 
   const output = state.data.status.finished ? (
@@ -93,7 +183,7 @@ const Game = () => {
       <h1 style={{ textAlign: "center" }}>
         WINNER: {state.data[state.data.status.winner].name}
       </h1>
-      <img src="assets/images/ui/cheekwinner.png" width="50%"></img>
+      <img src={images_ui.cheekWinner} width="50%"></img>
     </div>
   ) : (
     <div style={{ display: "flex", height: "100vh" }}>
@@ -110,15 +200,15 @@ const Game = () => {
       >
         <Infobox
           align="flex-start"
-          data={state.data[opponent]}
+          data={state.data[props.opponent]}
           tiles={state.data.board.tiles}
-          player={opponent}
+          player={props.opponent}
         />
         <Infobox
           align="flex-end"
-          data={state.data[user]}
+          data={state.data[props.player]}
           tiles={state.data.board.tiles}
-          player={user}
+          player={props.player}
         />
       </div>
       <div
@@ -130,21 +220,25 @@ const Game = () => {
         }}
       >
         <Hand
-          data={state.data[opponent]}
-          owner={opponent}
+          data={state.data[props.opponent]}
+          owner={props.opponent}
           height="36px"
           align="flex-start"
-          user={user}
-          opponent={opponent}
+          user={props.player}
+          opponent={props.opponent}
         />
-        <Board data={state.data.board} user={user} opponent={opponent} />
+        <Board
+          data={state.data.board}
+          user={props.player}
+          opponent={props.opponent}
+        />
         <Hand
-          data={state.data[user]}
-          owner={user}
+          data={state.data[props.player]}
+          owner={props.player}
           height="166px"
           align="flex-end"
-          user={user}
-          opponent={opponent}
+          user={props.player}
+          opponent={props.opponent}
         />
       </div>
       <div
@@ -160,9 +254,9 @@ const Game = () => {
         <div style={{ height: "50vh" }}>
           <Wheel
             data={state.data.status}
-            user={user}
-            opponent={opponent}
-            id={id}
+            user={props.player}
+            opponent={props.opponent}
+            id={props.gameId}
           />
         </div>
       </div>
@@ -170,6 +264,6 @@ const Game = () => {
   );
 
   return output;
-};
+});
 
 export default Game;

@@ -2,7 +2,7 @@ import React from "react";
 import { useStore } from "../../../../../hooks/store";
 import images_ui from "../../../../../assets/images/ui/images_ui";
 
-const WheelButton = (props) => {
+const WheelButton = React.memo((props) => {
   const [state, dispatch] = useStore();
   const selectable = state.wheelbuttons[props.id].selectable
     ? ""
@@ -67,6 +67,6 @@ const WheelButton = (props) => {
       />
     </g>
   );
-};
+});
 
 export default WheelButton;

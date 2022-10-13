@@ -3,7 +3,7 @@ import { useStore } from "../../../../../hooks/store";
 import Occupant from "./Occupant/Occupant";
 import "./Tile.css";
 
-const Tile = (props) => {
+const Tile = React.memo((props) => {
   const [state, dispatch] = useStore();
 
   const extraclass =
@@ -66,6 +66,6 @@ const Tile = (props) => {
       />
     </React.Fragment>
   );
-};
+});
 
 export default Tile;

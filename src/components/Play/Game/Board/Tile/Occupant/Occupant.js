@@ -4,7 +4,7 @@ import "./Occupant.css";
 import images from "../../../../../../assets/images/cards/images";
 import icons from "../../../../../../assets/images/ui/icons";
 
-const Occupant = (props) => {
+const Occupant = React.memo((props) => {
   const [state, dispatch] = useStore();
 
   const points_divine = [
@@ -307,6 +307,6 @@ const Occupant = (props) => {
   );
 
   return state.data.board.tiles[props.tile].occupant.id > 0 ? occupant : null;
-};
+});
 
 export default Occupant;

@@ -7,15 +7,17 @@ const Play = () => {
   const history = useHistory();
   const user = useContext(User);
 
-  console.log(games);
-
   useEffect(() => {
+    user.socket.emit("initGames");
     user.socket.on("updateGames", (data) => {
-      console.log(data);
       updateGames(JSON.parse(data));
+    });
+    user.socket.on("redirectToGame", (id) => {
+      history.replace(`/game/${id}`);
     });
     return () => {
       user.socket.off("updateGames");
+      user.socket.off("redirectToGame");
     };
   }, []);
 
@@ -24,6 +26,7 @@ const Play = () => {
   };
 
   const joinGameHandler = (event) => {
+    user.socket.emit("joinGame", user.userID, event.target.value);
     history.replace(`/game/${event.target.value}`);
   };
 

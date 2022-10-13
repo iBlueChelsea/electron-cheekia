@@ -2,7 +2,7 @@ import React from "react";
 import Card from "./Card/Card";
 import { useStore } from "../../../../hooks/store";
 
-const Hand = (props) => {
+const Hand = React.memo((props) => {
   const state = useStore()[0];
 
   const cards = props.data.hand.map((id, index) => {
@@ -40,6 +40,6 @@ const Hand = (props) => {
       {cards}
     </div>
   );
-};
+});
 
 export default Hand;

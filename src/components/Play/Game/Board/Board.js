@@ -3,7 +3,7 @@ import Tile from "./Tile/Tile";
 import Well from "./Well/Well";
 import God from "./God/God";
 
-const Board = (props) => {
+const Board = React.memo((props) => {
   const hexSize = 60;
   const boardMaxHeight = 6;
   const godMaxHeight = boardMaxHeight + 1;
@@ -126,6 +126,6 @@ const Board = (props) => {
       </svg>
     </div>
   );
-};
+});
 
 export default Board;

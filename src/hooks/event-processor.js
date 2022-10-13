@@ -147,7 +147,15 @@ export default class EventProcessor {
 
   processGiftEffect(selected_occupant_id) {
     const occupant = this.state.data.board.tiles[selected_occupant_id].occupant;
-    this[this.giftEffectLibrary[occupant.id]]("handle", selected_occupant_id);
+
+    let occupantId = occupant.id;
+    //Cheeksphynx Deal 3 Damage variant:
+
+    if (occupantId == 36) {
+      occupantId = 39;
+    }
+
+    this[this.giftEffectLibrary[occupantId]]("handle", selected_occupant_id);
     this.state.tiles[selected_occupant_id].occupantSelected = false;
     this.state.currentAction = "";
     Object.keys(this.state.hand).forEach((key) => {
@@ -1255,6 +1263,8 @@ export default class EventProcessor {
       const target = JSON.parse(JSON.stringify(this.state)).cardLibrary[
         this.state.data.board.tiles[this.data.tile_id].occupant.id
       ];
+      target.player =
+        this.state.data.board.tiles[this.data.tile_id].occupant.player;
       target.land_cost.wild = Object.values(target.land_cost).reduce(
         (sum, current) => sum + current
       );
@@ -1400,12 +1410,22 @@ export default class EventProcessor {
       );
     }
     this.state.currentAction = "";
+    this.setSelectStateForOccupants(true, false);
+    this.setSelectStateForAllTiles(false);
+    this.setSelectStateForGods(false);
+    this.setSelectStateForHand(true);
+    this.setSelectStateForWheel(true);
   }
 
   //38 - Cheeksphynx B
   processSummonEffect_38() {
     this.state.data[this.data.player].faeria += 3;
     this.state.currentAction = "";
+    this.setSelectStateForOccupants(true, false);
+    this.setSelectStateForAllTiles(false);
+    this.setSelectStateForGods(false);
+    this.setSelectStateForHand(true);
+    this.setSelectStateForWheel(true);
   }
 
   //Creatures - Lastword Effects
@@ -1786,9 +1806,10 @@ export default class EventProcessor {
 
   //53 - Cheek Cannon
   processSpecialEffect_53(params) {
-    const adjacent = (params.attack === "occupant"
-      ? this.state.tiles[params.tile].adjacent
-      : this.state.gods[params.god].adjacent);
+    const adjacent =
+      params.attack === "occupant"
+        ? this.state.tiles[params.tile].adjacent
+        : this.state.gods[params.god].adjacent;
     const availableTiles = this.getRandomTiles().filter(
       (tile) =>
         !this.state.data.board.tiles[tile].occupant.player &&

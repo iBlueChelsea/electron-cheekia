@@ -2,7 +2,7 @@ import React from "react";
 import { useStore } from "../../../../../hooks/store";
 import "./God.css";
 
-const God = (props) => {
+const God = React.memo((props) => {
   const [state, dispatch] = useStore();
   const selectable = state.gods[props.id].selectable
     ? "god-selectable"
@@ -42,6 +42,6 @@ const God = (props) => {
       </text>
     </g>
   );
-};
+});
 
 export default God;

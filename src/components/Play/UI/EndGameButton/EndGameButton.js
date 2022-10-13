@@ -2,8 +2,8 @@ import React from "react";
 import "./EndGameButton.css";
 import { useStore } from "../../../../hooks/store";
 
-const EndGameButton = (props) => {
-  const dispatch = useStore()[1];
+const EndGameButton = React.memo((props) => {
+  const dispatch = useStore(false)[1];
 
   const endGameHandler = () => {
     const payload = {
@@ -30,6 +30,6 @@ const EndGameButton = (props) => {
       </g>
     </svg>
   );
-};
+});
 
 export default EndGameButton;

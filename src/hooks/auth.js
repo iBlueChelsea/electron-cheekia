@@ -3,7 +3,7 @@ import React, {useState} from "react";
 const User = React.createContext({
     userID: null,
     socket: null,
-    connect: (id) => {},
+    connect: (conn) => {},
     login: (id) => {},
     logout: () => {},
 });

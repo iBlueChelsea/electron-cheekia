@@ -13,7 +13,6 @@ const DeckList = (props) => {
         user: user.userID,
       })
       .then((res) => {
-        console.log(res);
         setDecksState(res.data);
       })
       .catch((error) => {

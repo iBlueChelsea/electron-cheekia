@@ -2,9 +2,8 @@ import React, { useState } from "react";
 import "./MulliganModal.css";
 import Card from "../../Game/Hand/Card/Card";
 import { useStore } from "../../../../hooks/store";
-import axios from "axios";
 
-const MulliganModal = (props) => {
+const MulliganModal = React.memo((props) => {
   const [state, dispatch] = useStore();
   const [initialHand, setInitialHand] = useState({
     0: false,
@@ -23,20 +22,20 @@ const MulliganModal = (props) => {
     return !initialHand[index] ? "card-mulligan" : "card-mulligan-selected";
   };
 
-  const cards = state.data[props.user].deck.slice(0, 3).map((id, index) => {
+  const cards = state.data[props.player].deck.slice(0, 3).map((id, index) => {
     return (
       <Card
         key={id}
         id={id}
         index={index}
-        data={state.data[props.user].cards[id]}
+        data={state.data[props.player].cards[id]}
         height="486px"
         width="360px"
         clickAction={swapHandler}
         classname={classname(index)}
-        user={props.user}
+        user={props.player}
         opponent={props.opponent}
-        owner={props.user}
+        owner={props.player}
       />
     );
   });
@@ -46,77 +45,13 @@ const MulliganModal = (props) => {
       return;
     }
     setBtnDisabled(true);
-    const newState = JSON.parse(JSON.stringify(state));
-    const getdata = new FormData();
-    getdata.append("id", props.id);
-    axios
-      .post("/faeria/Faeria/utils/getState.php", getdata)
-      .then((res) => {
-        const prevState = JSON.parse(res.data);
-        newState.data[props.opponent] = prevState.data[props.opponent];
-        const prevHand = newState.data[props.user].deck.slice(0, 3);
-        const cardsToReplace = [];
-        const newHand = [];
-        for (let i = 0; i < prevHand.length; i++) {
-          if (initialHand[i]) {
-            cardsToReplace.push(
-              newState.data[props.user].cards[prevHand[i]].id
-            );
-          } else {
-            newHand.push(parseInt(prevHand[i]));
-          }
-        }
-        const replacePool = Object.entries(
-          newState.data[props.user].cards
-        ).filter(
-          (card) =>
-            !cardsToReplace.includes(card[1].id) &&
-            !newHand.includes(parseInt(card[0])) &&
-            parseInt(card[0]) !== 0
-        );
-        for (let i = 0; i < cardsToReplace.length; i++) {
-          let random = Math.floor(Math.random() * replacePool.length);
-          newHand.push(parseInt(replacePool[random][0]));
-          replacePool.splice(random, 1);
-        }
-        const shuffledDeck = [];
-        const prevDeck = newState.data[props.user].deck.filter(
-          (card) => !newHand.includes(card)
-        );
-        const deckLength = prevDeck.length;
-        for (let i = 0; i < deckLength; i++) {
-          let random = Math.floor(Math.random() * prevDeck.length);
-          shuffledDeck.push(prevDeck[random]);
-          prevDeck.splice(random, 1);
-        }
-        if (props.user === "player2") {
-          newHand.push(0);
-        }
-        newState.data[props.user].deck = shuffledDeck;
-        newState.data[props.user].hand = newHand;
-        newState.data[props.user].mulligan = false;
-        const postdata = new FormData();
-        postdata.append("react_state", JSON.stringify(newState));
-        postdata.append("id", props.id);
-        axios
-          .post(
-            "/faeria/Faeria/utils/saveState.php",
-            postdata
-          )
-          .then(() => {
-            dispatch("CONFIRM_MULLIGAN", newState);
-          })
-          .catch((error) => {
-            console.log("Network Error", error.message);
-          });
-      })
-      .catch((error) => {
-        console.log("Network Error", error.message);
-      });
+
+    const payload = { player: props.player, initialHand: initialHand };
+    dispatch("CONFIRM_MULLIGAN", payload);
   };
 
   return (
-    <div className="modal">
+    <div className="mulligan-modal">
       <div style={{ justifyContent: "center", display: "flex", height: "75%" }}>
         {cards}
       </div>
@@ -127,6 +62,6 @@ const MulliganModal = (props) => {
       </div>
     </div>
   );
-};
+});
 
 export default MulliganModal;

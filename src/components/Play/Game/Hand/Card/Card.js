@@ -1,9 +1,9 @@
-import React from "react";
+import React, { useEffect } from "react";
 import images from "../../../../../assets/images/cards/images";
 import "./Card.css";
 import { useStore } from "../../../../../hooks/store";
 
-const Card = (props) => {
+const Card = React.memo((props) => {
   const [state, dispatch] = useStore();
 
   const cardHandler = () => {
@@ -50,6 +50,6 @@ const Card = (props) => {
       ></img>
     </div>
   );
-};
+});
 
 export default Card;

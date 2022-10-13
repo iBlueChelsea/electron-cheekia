@@ -1,6 +1,6 @@
 import React from "react";
 
-const Deck = (props) => {
+const Deck = React.memo((props) => {
   return (
     <div style={{ display: "flex", justifyContent: "center" }}>
       <div style={{ border: "5px solid #001920" }}>
@@ -11,6 +11,6 @@ const Deck = (props) => {
       </div>
     </div>
   );
-};
+});
 
 export default Deck;
